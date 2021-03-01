@@ -149,4 +149,8 @@ dmypy.json
 .history
 .ionide
 
+
+### Jupyter ### 
+.ipynb_checkpoints
+
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
