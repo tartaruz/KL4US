@@ -153,4 +153,6 @@ dmypy.json
 ### Jupyter ### 
 .ipynb_checkpoints
 
+## Large Files ##
+pickeledDataset
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode

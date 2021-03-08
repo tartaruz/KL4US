@@ -11,7 +11,8 @@ example = {'U_1': [7.0,6.0,7.0,4.0,5.0,4.0],
 
 df = pd.DataFrame(data=example).T
 
-  
+print(df)
+
 def findMean(dataF):
     # Transposes to get Item rating
     mean_list,dataF = [],dataF.T
@@ -50,14 +51,14 @@ def predict_rank(df, user_u, itemNR):
     under = sum([abs(i) for i in df["Sim(i,3)"].tolist()])
     print(u + (over/under))
 
-df['Mean'] = findMean(df)
-users = [i for i in df.T]
-sim_list = []
-for user in users:
-    sim_list.append(Pearson(df.T, user,"U_3"))
-df["Sim(i,3)"] = sim_list
+# df['Mean'] = findMean(df)
+# users = [i for i in df.T]
+# sim_list = []
+# for user in users:
+#     sim_list.append(Pearson(df.T, user,"U_3"))
+# df["Sim(i,3)"] = sim_list
 
-predict_rank(df, "U_3", 5)
+# predict_rank(df, "U_3", 5)
 
-print(df)
+# print(df)
 #np.corrcoef([1,2,3], [3,3,3])
