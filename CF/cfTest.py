@@ -6,6 +6,7 @@ from surprise import accuracy
 from collections import defaultdict
 from sklearn.preprocessing import StandardScaler
 import numpy as np
+import pandas as pd
 
 class CF:
     def __init__(self, k, min_k, sim, user_based):
@@ -67,12 +68,10 @@ class CF:
         return predictions
 
     def get_top_n(self, predictions, n=10):
-        # First map the predictions to each user.
         top_n = defaultdict(list)
         for uid, iid, true_r, est, _ in predictions:
             top_n[uid].append((iid, est))
 
-        # Then sort the predictions for each user and retrieve the k highest ones.
         for uid, user_ratings in top_n.items():
             user_ratings.sort(key=lambda x: x[1], reverse=True)
             top_n[uid] = user_ratings[:n]
@@ -81,10 +80,21 @@ class CF:
 
 if __name__ == '__main__':
     cf = CF(15, 5, 'pearson', True)
-    # cf.train()
-    # accuracy.mse(cf.test())
+    cf.train()
+    accuracy.mse(cf.test())
+    # testset = pd.DataFrame(cf.testset, columns=['uid', 'iid', 'rating'])
+    # antitestset = pd.DataFrame(cf.trainsetfull.build_anti_testset(), columns=['uid', 'iid', 'rating'])
+    # user1test = testset[testset['uid'] == 'cx:13576697471061598567701:1msq47q99r2b6']
+    # user1anti = antitestset[antitestset['uid'] == 'cx:13576697471061598567701:1msq47q99r2b6']
+    # user1id = 'cx:13576697471061598567701:1msq47q99r2b6'
+    # antitestset = cf.trainsetfull.build_anti_testset()
+    # user1anti = list(filter(lambda x: x[0] == user1id, antitestset))
+    # predictions = cf.algo.test(user1anti)
+    # print(cf.get_top_n(predictions))
+    
 
-    cf.fit()
-    # TODO: This is not working.
-    for uid, user_ratings in cf.get_top_n(cf.predict_all()):
-        print(uid, [iid for (iid, _) in user_ratings])
+    # print(testset.groupby(['uid', 'iid']).head())
+    # cf.fit()
+    # # TODO: This is not working.
+    # for uid, user_ratings in cf.get_top_n(cf.predict_all()):
+    #     print(uid, [iid for (iid, _) in user_ratings])
