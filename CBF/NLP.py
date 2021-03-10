@@ -1,7 +1,7 @@
 import pandas as pd
 import pickle
-import spacy
-from spacy.lang.nb import Norwegian
+# import spacy
+# from spacy.lang.nb import Norwegian
 # from spacy.tokenizer import Tokenizer
 import string
 import nltk
@@ -10,6 +10,9 @@ from nltk.stem.snowball import NorwegianStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+import random
+import operator
+
 
 
 stemmer = NorwegianStemmer() 
@@ -20,7 +23,7 @@ nltk.download('stopwords')
 class NLP():
     def __init__(self, data):
         self.data = data
-        self.nlp = spacy.load('nb_core_news_sm')
+        # self.nlp = spacy.load('nb_core_news_sm')
         self.vectors = None
 
 
@@ -28,7 +31,9 @@ class NLP():
         self.info("Removing None and duplicates in data")
         self.data = self.data.drop_duplicates(["title"])
         self.data = self.data.dropna(subset=('title',))
+        self.data = self.data.reset_index()
 
+        
   
     def get_titles(self):
         self.info("Getting the titles")
@@ -86,42 +91,43 @@ class NLP():
         self.vectors = vectorizer.fit_transform(corpus)
         # denselist = vectors.todense().tolist()
 
-    def compare(self, title, k=10):
+    def compare(self, title, k_number=10):
         self.info("Comparing title with all other titles")
+        self.info(f"Search: [{title}]")
         q_index = self.data[self.data["title"]==title].index
-        
         if len(q_index)<=0:
             return None
-        
+
         similarity = cosine_similarity(self.vectors)[q_index].tolist()[0]
-        similarities = [(i,v) for i,v in enumerate(similarity)]
-        similarities.sort(key=lambda x:x[1], reverse=True)
-        
-        #Remove itself since it compares to all enetries in df
-        similarities.pop(0)
-        results = [self.data.iloc[res[0]] for res in similarities]
-        return similarities[:k+1], results
+        # for index,value in enumerate(similarity):
+        #     self.data.iloc[index]["similarity"] = value
+        # print(similarity)
+        # index, value = max(enumerate(similarity), key=operator.itemgetter(1))
+        # print("------------------",index, value)
+        # print(self.data.iloc[index])
+        # self.data = self.data.sort_values(by=['index'])
+        self.data["similarity"] = similarity
+        results = self.data.sort_values(by=['similarity'], ascending=False)
+        return results[:k_number]
 
     def info(self, text):
         line = "="*(75-len(text))
-        print(f"{line}=> {text}")
+        print(f"{line}=> {text} +  {len(self.data)}")
 
 
 
-    
+if __name__ == "__main__":
+    path = "CBF/data/df_pickled"
+    df = pickle.load(open(path, "rb"))
+    nlp = NLP(df)
 
-path = "CBF/data/df_pickled"
-df = pickle.load(open(path, "rb"))
-title = df["title"][69]
-nlp = NLP(df)
+    nlp.do_magic()
 
-nlp.do_magic()
-
-res, res_array = nlp.compare(title)
-print(res_array)
-
-# print(nlp.data["title"])
-
-
-
+    i = random.randint(0, len(nlp.data))
+    query = nlp.data["title"][i]
+   
+    results = nlp.compare(query, k_number = 15)
+    cols = ["similarity","title", "url"]
+    print(query)
+    print(results[cols])
 
