@@ -12,9 +12,9 @@ class CF:
     def __init__(self, k, min_k, sim, user_based):
         self.dataset = Data().load_dataset('pickeledDataset')
         self.users = self.dataset[['userId', 'documentId', 'activeTime']]
-        scaler = StandardScaler()
+        self.scaler = StandardScaler()
         
-        self.users['activeTime'] = scaler.fit_transform(np.array(self.users['activeTime']).reshape(-1, 1))
+        self.users['activeTime'] = self.scaler.fit_transform(np.array(self.users['activeTime']).reshape(-1, 1))
 
         self.users.columns = ['userId', 'documentId', 'rating']
 
@@ -62,39 +62,61 @@ class CF:
         self.algo.fit(self.trainsetfull)
 
     def predict_all(self):
-        testset = self.trainsetfull.build_anti_testset()
-        predictions = self.algo.test(testset)
+        testset = pd.DataFrame(self.testset, columns=['uid', 'iid', 'rating'])
+        return self.algo.test(testset.values.tolist())
+        
+    def predict_user(self, user):
+        testset = pd.DataFrame(self.testset, columns=['uid', 'iid', 'rating'])
+        return self.algo.test(testset[testset['uid'] == user].values.tolist())
 
+    def predictions_to_dataframe(self, predictions):
+        return pd.DataFrame(predictions)
+
+    def sort_predictions(self, predictions):
+        return predictions.sort_values("est", ascending=False, inplace=False)
+
+    def scale_predictions(self, predictions):
+        predictions['r_ui'] = self.scaler.inverse_transform(np.array(predictions['r_ui']).reshape(-1,1))
+        predictions['est'] = self.scaler.inverse_transform(np.array(predictions['est']).reshape(-1,1))
         return predictions
 
-    def get_top_n(self, predictions, n=10):
-        top_n = defaultdict(list)
-        for uid, iid, true_r, est, _ in predictions:
-            top_n[uid].append((iid, est))
+    def get_top_n(self, predictions, user=None, n=10):
+        if user is None:
+            return predictions.sort_values('est', inplace=True, ascending=False).head(n)
+        return predictions[predictions['uid'] == user].sort_values('est', inplace=True, ascending=False).head(n)
 
-        for uid, user_ratings in top_n.items():
-            user_ratings.sort(key=lambda x: x[1], reverse=True)
-            top_n[uid] = user_ratings[:n]
+    def precision_recall(self, predictions, k=10, threshold=44):
+        user_est_true = defaultdict(list)
+        for i, row in predictions.iterrows():
+            user_est_true[row['uid']].append((row['est'], row['r_ui']))
+        
+        precisions = dict()
+        recalls = dict()
+        for uid, user_ratings in user_est_true.items():
+            user_ratings.sort(key=lambda x: x[0], reverse=True)
 
-        return top_n
+            n_rel = sum((true_r >= threshold) for (_, true_r) in user_ratings)
+
+            n_rec_k = sum((est >= threshold) for (est, _) in user_ratings[:k])
+
+            n_rel_and_rec_k = sum(((true_r >= threshold) and (est >= threshold))
+                                        for (est, true_r) in user_ratings[:k])
+
+            precisions[uid] = n_rel_and_rec_k / n_rec_k if n_rec_k != 0 else 0
+
+            recalls[uid] = n_rel_and_rec_k / n_rel if n_rel != 0 else 0
+
+        return precisions, recalls
+
 
 if __name__ == '__main__':
     cf = CF(15, 5, 'pearson', True)
     cf.train()
-    accuracy.mse(cf.test())
-    # testset = pd.DataFrame(cf.testset, columns=['uid', 'iid', 'rating'])
-    # antitestset = pd.DataFrame(cf.trainsetfull.build_anti_testset(), columns=['uid', 'iid', 'rating'])
-    # user1test = testset[testset['uid'] == 'cx:13576697471061598567701:1msq47q99r2b6']
-    # user1anti = antitestset[antitestset['uid'] == 'cx:13576697471061598567701:1msq47q99r2b6']
-    # user1id = 'cx:13576697471061598567701:1msq47q99r2b6'
-    # antitestset = cf.trainsetfull.build_anti_testset()
-    # user1anti = list(filter(lambda x: x[0] == user1id, antitestset))
-    # predictions = cf.algo.test(user1anti)
-    # print(cf.get_top_n(predictions))
-    
-
-    # print(testset.groupby(['uid', 'iid']).head())
-    # cf.fit()
-    # # TODO: This is not working.
-    # for uid, user_ratings in cf.get_top_n(cf.predict_all()):
-    #     print(uid, [iid for (iid, _) in user_ratings])
+    testset = pd.DataFrame(cf.testset, columns=['uid', 'iid', 'rating'])
+    user1test = testset[testset['uid'] == 'cx:13576697471061598567701:1msq47q99r2b6']
+    user1id = 'cx:13576697471061598567701:1msq47q99r2b6'
+    user1anti = testset[testset['uid'] == user1id]
+    predictions = cf.predict_user(user1id)
+    accuracy.mse(predictions)
+    predictions = cf.sort_predictions(cf.scale_predictions(cf.predictions_to_dataframe(predictions)))
+    print(cf.precision_recall(predictions, k=9999))
