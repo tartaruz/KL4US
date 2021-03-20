@@ -108,6 +108,19 @@ class CF:
 
         return precisions, recalls
 
+    def ARHR(self, predictions, k=15, threshold=44):
+        user_est_true = defaultdict(list)
+        for i, row in predictions.iterrows():
+            user_est_true[row['uid']].append((row['est'], row['r_ui']))
+
+        reciprocal_rank = 0
+        for uid in user_est_true:
+            for i, user_ratings in enumerate(user_est_true[uid][:k]):
+                # print((user_ratings[0] >= threshold and user_ratings[1] >= threshold)/(i+1))
+                reciprocal_rank += (user_ratings[0] >= threshold and user_ratings[1] >= threshold)/(i+1)
+
+        return reciprocal_rank/len(list(user_est_true.keys()))
+                    
 
 if __name__ == '__main__':
     cf = CF(15, 5, 'pearson', True)
@@ -116,7 +129,8 @@ if __name__ == '__main__':
     user1test = testset[testset['uid'] == 'cx:13576697471061598567701:1msq47q99r2b6']
     user1id = 'cx:13576697471061598567701:1msq47q99r2b6'
     user1anti = testset[testset['uid'] == user1id]
-    predictions = cf.predict_user(user1id)
+    predictions = cf.predict_all()
     accuracy.mse(predictions)
     predictions = cf.sort_predictions(cf.scale_predictions(cf.predictions_to_dataframe(predictions)))
-    print(cf.precision_recall(predictions, k=9999))
+    # print(cf.precision_recall(predictions, k=9999))
+    print(cf.ARHR(predictions))
